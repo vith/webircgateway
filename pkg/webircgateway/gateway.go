@@ -15,6 +15,7 @@ import (
 
 	"github.com/kiwiirc/webircgateway/pkg/identd"
 	"github.com/kiwiirc/webircgateway/pkg/proxy"
+	"github.com/lpar/gzipped"
 	"github.com/orcaman/concurrent-map"
 )
 
@@ -90,11 +91,20 @@ func (s *Gateway) WaitClose() {
 	s.closeWg.Wait()
 }
 
+func withIndex(handler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			r.URL.Path += "index.html"
+		}
+		handler.ServeHTTP(w, r)
+	}
+}
+
 func (s *Gateway) maybeStartStaticFileServer() {
 	if s.Config.Webroot != "" {
 		webroot := s.Config.ResolvePath(s.Config.Webroot)
 		s.Log(2, "Serving files from %s", webroot)
-		s.HttpRouter.Handle("/", http.FileServer(http.Dir(webroot)))
+		s.HttpRouter.Handle("/", withIndex(gzipped.FileServer(http.Dir(webroot))))
 	}
 }
 
